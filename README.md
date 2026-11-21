@@ -23,7 +23,7 @@ Then:
 npm run dev
 ```
 
-Live: https://a-erp.vercel.app (deploys automatically on every push to `main`).
+Live: https://a-erp-flax.vercel.app (Vercel project `a-erp`, functions in Tokyo next to the Supabase project).
 
 Open http://localhost:3000. Create an account at `/signup`, and you'll land on `/dashboard`.
 
