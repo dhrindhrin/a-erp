@@ -32,7 +32,7 @@ async function Welcome() {
         Hello, <span className="font-semibold">{user.username}</span> 👋
       </p>
       <p className="mt-2 text-sm text-zinc-500">
-        Member since {new Date(user.created_at.replace(" ", "T") + "Z").toLocaleDateString("en-US")}.
+        Member since {new Date(user.created_at).toLocaleDateString("en-US")}.
         This page is only visible to signed-in users.
       </p>
     </>

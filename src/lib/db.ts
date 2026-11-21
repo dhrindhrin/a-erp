@@ -1,44 +1,37 @@
 import "server-only";
-import Database from "better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
 
-const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "app.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+// User accounts live in Supabase (schema app_auth, not exposed by the API).
+// The app can only reach them through three Postgres functions, and bcrypt
+// hashing/checking happens inside the database, so password hashes never leave it.
 
-// Reuse one connection across hot reloads in development.
-const globalForDb = globalThis as unknown as { db?: Database.Database };
+export type User = { id: string; username: string; created_at: string };
 
-export const db = globalForDb.db ?? new Database(dbPath);
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be set (see .env.example).");
 
-db.pragma("journal_mode = WAL");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    password_hash TEXT NOT NULL,
-    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`);
-
-export type User = { id: number; username: string; created_at: string };
-
-export function findUserByUsername(username: string) {
-  return db
-    .prepare("SELECT id, username, password_hash, created_at FROM users WHERE username = ?")
-    .get(username) as (User & { password_hash: string }) | undefined;
+  const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Supabase ${fn} failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T>;
 }
 
-export function findUserById(id: number) {
-  return db.prepare("SELECT id, username, created_at FROM users WHERE id = ?").get(id) as
-    | User
-    | undefined;
+/** Creates a user. Returns the new id, or null when the username is taken. */
+export function createUser(username: string, password: string) {
+  return rpc<string | null>("app_signup", { p_username: username, p_password: password });
 }
 
-export function createUser(username: string, passwordHash: string) {
-  const result = db
-    .prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)")
-    .run(username, passwordHash);
-  return Number(result.lastInsertRowid);
+/** Returns the user id when username + password match, else null. */
+export function verifyLogin(username: string, password: string) {
+  return rpc<string | null>("app_login", { p_username: username, p_password: password });
+}
+
+export async function findUserById(id: string) {
+  const rows = await rpc<User[]>("app_get_user", { p_id: id });
+  return rows[0];
 }

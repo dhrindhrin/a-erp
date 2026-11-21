@@ -2,7 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, encrypt } from "./session-token";
 
-export async function createSession(userId: number) {
+export async function createSession(userId: string) {
   const expiresAt = Date.now() + SESSION_TTL_SECONDS * 1000;
   const token = await encrypt({ userId, expiresAt });
   (await cookies()).set(SESSION_COOKIE, token, {

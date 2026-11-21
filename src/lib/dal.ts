@@ -9,7 +9,7 @@ import { findUserById } from "./db";
 export const getCurrentUser = cache(async () => {
   const session = await decrypt((await cookies()).get(SESSION_COOKIE)?.value);
   if (!session) return null;
-  return findUserById(session.userId) ?? null;
+  return (await findUserById(session.userId)) ?? null;
 });
 
 /** Use in protected pages/actions: redirects to /login when not signed in. */
